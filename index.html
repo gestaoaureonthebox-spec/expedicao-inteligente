@@ -1,0 +1,90 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expedição Inteligente</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f1f5f3;
+  padding: 20px;
+  color: #16332b;
+}
+main {
+  max-width: 500px;
+  margin: auto;
+  background: white;
+  padding: 20px;
+  border-radius: 16px;
+}
+button {
+  width: 100%;
+  padding: 16px;
+  margin: 8px 0;
+  background: #146b48;
+  color: white;
+  border: 0;
+  border-radius: 8px;
+  font-size: 17px;
+}
+#reader {
+  width: 100%;
+}
+#resultado {
+  overflow-wrap: anywhere;
+  padding: 12px;
+}
+</style>
+</head>
+<body>
+<main>
+<h2>Expedição Inteligente</h2>
+<p>Teste de bipagem pelo celular</p>
+<button onclick="abrir()">Abrir câmera</button>
+<button onclick="fechar()">Fechar câmera</button>
+<div id="reader"></div>
+<p id="resultado">Aguardando leitura...</p>
+</main>
+<script>
+let scanner = null;
+let iniciando = false;
+async function abrir() {
+  if (scanner || iniciando) return;
+  iniciando = true;
+  const resultado = document.getElementById("resultado");
+  try {
+    scanner = new Html5Qrcode("reader");
+    await scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 230 },
+      function(codigo) {
+        resultado.textContent = "Código identificado: " + codigo;
+      },
+      function() {}
+    );
+    resultado.textContent = "Câmera funcionando!";
+  } catch(e) {
+    scanner = null;
+    resultado.textContent = "Erro: " + e;
+  } finally {
+    iniciando = false;
+  }
+}
+async function fechar() {
+  if (scanner && !iniciando) {
+    try {
+      await scanner.stop();
+      scanner.clear();
+      scanner = null;
+      document.getElementById("resultado").textContent = "Câmera fechada.";
+    } catch(e) {
+      document.getElementById("resultado").textContent = "Erro: " + e;
+    }
+  }
+}
+</script>
+</body>
+</html>
