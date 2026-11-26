@@ -1,90 +1,19 @@
-
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Expedição Inteligente</title>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f1f5f3;
-  padding: 20px;
-  color: #16332b;
-}
-main {
-  max-width: 500px;
-  margin: auto;
-  background: white;
-  padding: 20px;
-  border-radius: 16px;
-}
-button {
-  width: 100%;
-  padding: 16px;
-  margin: 8px 0;
-  background: #146b48;
-  color: white;
-  border: 0;
-  border-radius: 8px;
-  font-size: 17px;
-}
-#reader {
-  width: 100%;
-}
-#resultado {
-  overflow-wrap: anywhere;
-  padding: 12px;
-}
-</style>
-</head>
-<body>
-<main>
-<h2>Expedição Inteligente</h2>
-<p>Teste de bipagem pelo celular</p>
-<button onclick="abrir()">Abrir câmera</button>
-<button onclick="fechar()">Fechar câmera</button>
-<div id="reader"></div>
-<p id="resultado">Aguardando leitura...</p>
-</main>
-<script>
-let scanner = null;
-let iniciando = false;
-async function abrir() {
-  if (scanner || iniciando) return;
-  iniciando = true;
-  const resultado = document.getElementById("resultado");
-  try {
-    scanner = new Html5Qrcode("reader");
-    await scanner.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 230 },
-      function(codigo) {
-        resultado.textContent = "Código identificado: " + codigo;
-      },
-      function() {}
-    );
-    resultado.textContent = "Câmera funcionando!";
-  } catch(e) {
-    scanner = null;
-    resultado.textContent = "Erro: " + e;
-  } finally {
-    iniciando = false;
-  }
-}
-async function fechar() {
-  if (scanner && !iniciando) {
-    try {
-      await scanner.stop();
-      scanner.clear();
-      scanner = null;
-      document.getElementById("resultado").textContent = "Câmera fechada.";
-    } catch(e) {
-      document.getElementById("resultado").textContent = "Erro: " + e;
-    }
-  }
-}
-</script>
-</body>
-</html>
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Expedição Inteligente</title><script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script><style>body{font:16px system-ui;background:#eef4f1;color:#16332b;margin:0}main{max-width:560px;margin:auto;padding:16px}section{background:white;padding:16px;border-radius:14px;margin:12px 0}button,input,select{box-sizing:border-box;width:100%;padding:12px;margin:5px 0;font:inherit;border:1px solid #aabbb3;border-radius:8px}button{background:#146b48;color:white;border:0}button:disabled{opacity:.5}#msg{overflow-wrap:anywhere}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:7px;border-bottom:1px solid #ddd}small{color:#52665c}</style><main><h1>Expedição Inteligente</h1><small>V2 • registros neste aparelho</small><section><input id="operador" placeholder="Nome do operador"><button id="start">Abrir câmera</button><button id="stop">Fechar câmera</button><div id="reader"></div><input id="manual" placeholder="Código manual"><button id="read">Analisar código</button><p id="msg" role="status">Aguardando leitura</p><div id="confirm" hidden><label>Empresa<select id="empresa"><option value="">Selecione</option><option>THEBOXX</option><option>AUREONQUIM</option><option>MOTOBRAND</option></select></label><label>Canal<select id="canal"></select></label><label id="learnbox" hidden><input type="checkbox" id="learn" style="width:auto"> Associar este remetente Mercado Livre à empresa</label><button id="save">Confirmar pacote</button><button id="cancel">Cancelar leitura</button></div></section><section><h2>Relatório</h2><label>Período<select id="period"><option value="day">Hoje</option><option value="month">Este mês</option><option value="all">Todos</option></select></label><h2 id="total">0 pacotes</h2><table><thead><tr><th>Empresa / Canal</th><th>Pacotes</th></tr></thead><tbody id="rows"></tbody></table><button id="export">Exportar CSV</button><small>Dados locais: exporte regularmente. Não sincronizado com a planilha.</small></section><section><h2>Remetentes cadastrados</h2><div id="rules"></div></section></main><script>
+'use strict';
+const $=id=>document.getElementById(id), channels=['Mercado Livre','Shopee','TikTok Shop','Magalu','Site'], companies=['THEBOXX','AUREONQUIM','MOTOBRAND'];
+let records=JSON.parse(localStorage.getItem('exp_records_v2')||'[]'), rules=JSON.parse(localStorage.getItem('exp_rules_v2')||'{}'), pending=null, scanner=null, busy=false, last='', lastAt=0, audio;
+function say(s){$('msg').textContent=s}
+function sound(ok){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();let o=audio.createOscillator(),g=audio.createGain();o.connect(g);g.connect(audio.destination);o.frequency.value=ok?880:220;g.gain.value=.12;o.start();o.stop(audio.currentTime+.15);navigator.vibrate?.(ok?80:200)}catch(e){}}
+function fill(){let old=$('canal').value;$('canal').replaceChildren(new Option('Selecione',''));for(const c of channels)if(c!=='Site'||$('empresa').value==='AUREONQUIM')$('canal').add(new Option(c,c));if([...$('canal').options].some(o=>o.value===old))$('canal').value=old}
+$('empresa').onchange=fill;fill();
+function identify(raw){try{const j=JSON.parse(raw);if(j&&j.id!=null&&j.sender_id!=null&&j.hash_code!=null&&/^\d+$/.test(String(j.id))&&/^\d+$/.test(String(j.sender_id)))return {key:'ML:'+j.id,channel:'Mercado Livre',sender:String(j.sender_id),company:rules[String(j.sender_id)]||''}}catch(e){}return {key:'RAW:'+raw.trim(),channel:'',company:''}}
+function scan(raw){raw=String(raw).trim();if(!raw||pending||raw.length>2000)return;if(raw===last&&Date.now()-lastAt<2500)return;last=raw;lastAt=Date.now();let p=identify(raw);if(records.some(r=>r.key===p.key)){say('Pacote já registrado');sound(false);return}if(!$('operador').value.trim()){say('Informe o operador antes de bipar');return}pending=p;if(p.company&&p.channel){register(p.company,p.channel,false);return}$('empresa').value=p.company||'';fill();$('canal').value=p.channel||'';$('learnbox').hidden=!p.sender;$('learn').checked=false;$('confirm').hidden=false;say(p.channel?'Mercado Livre identificado. Confirme a empresa.':'Origem não reconhecida. Confirme empresa e canal.')}
+function register(company,channel,learn){if(!pending||!companies.includes(company)||!channels.includes(channel)||(channel==='Site'&&company!=='AUREONQUIM')){say('Selecione empresa e canal válidos');return}if(! $('operador').value.trim()){say('Informe o operador');return}let next=[...records,{key:pending.key,company,channel,operator:$('operador').value.trim(),date:new Date().toISOString()}];try{localStorage.setItem('exp_records_v2',JSON.stringify(next));records=next}catch(e){say('Não foi possível salvar neste aparelho');return}if(learn&&pending.sender&&channel==='Mercado Livre'){rules[pending.sender]=company;try{localStorage.setItem('exp_rules_v2',JSON.stringify(rules))}catch(e){say('Pacote salvo, mas regra não persistida')}}pending=null;$('confirm').hidden=true;say('Registrado: '+company+' • '+channel);sound(true);render()}
+$('save').onclick=()=>register($('empresa').value,$('canal').value,$('learn').checked);$('cancel').onclick=()=>{pending=null;$('confirm').hidden=true;say('Leitura cancelada')};$('read').onclick=()=>scan($('manual').value);
+$('start').onclick=async()=>{if(scanner||busy)return;busy=true;try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();await audio.resume()}catch(e){}try{scanner=new Html5Qrcode('reader');await scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:230,height:150}},scan,()=>{});say('Câmera ativa')}catch(e){scanner=null;say('Erro de câmera: '+e)}finally{busy=false}};
+$('stop').onclick=async()=>{if(!scanner||busy)return;busy=true;try{await scanner.stop();scanner.clear();scanner=null;say('Câmera fechada')}catch(e){say(String(e))}finally{busy=false}};
+const day=d=>new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(d));
+function filtered(){let today=day(new Date()),p=$('period').value;return records.filter(r=>p==='all'||(p==='day'?day(r.date)===today:day(r.date).slice(0,7)===today.slice(0,7)))}
+function render(){let data=filtered();$('total').textContent=data.length+' pacotes';$('rows').replaceChildren();for(let e of companies)for(let c of channels){if(c==='Site'&&e!=='AUREONQUIM')continue;let tr=$('rows').insertRow();tr.insertCell().textContent=e+' / '+c;tr.insertCell().textContent=data.filter(r=>r.company===e&&r.channel===c).length}$('rules').replaceChildren();for(let [id,e] of Object.entries(rules)){let b=document.createElement('button');b.textContent=id+' — '+e+' (remover)';b.onclick=()=>{if(confirm('Remover associação?')){delete rules[id];localStorage.setItem('exp_rules_v2',JSON.stringify(rules));render()}};$('rules').append(b)}}
+$('period').onchange=render;$('export').onclick=()=>{const q=v=>'"'+String(v).replace(/^[=+@-]/,"'$&").replace(/"/g,'""')+'"';let csv=['Data;Empresa;Canal;Operador;Código',...filtered().map(r=>[r.date,r.company,r.channel,r.operator,r.key].map(q).join(';'))].join('\r\n');let url=URL.createObjectURL(new Blob(['\ufeff',csv],{type:'text/csv;charset=utf-8'}));let a=document.createElement('a');a.href=url;a.download='expedicao.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};render();
+</script></html>
